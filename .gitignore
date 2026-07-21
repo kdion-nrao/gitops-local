@@ -1,0 +1,8 @@
+**/secret*.yaml
+charts/
+aws-tests/
+.github/
+
+## ignore any unencrypted secrets
+secrets/*.yaml
+!secrets/*.enc.yaml

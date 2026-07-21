@@ -1,0 +1,8 @@
+apiVersion: k3d.io/v1alpha5
+kind: Simple
+metadata:
+  name: local
+ports:
+  - port: 8081:80 # same as '--port 8081:80@loadbalancer'
+    nodeFilters:
+      - loadbalancer

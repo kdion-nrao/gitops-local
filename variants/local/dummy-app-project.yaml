@@ -1,0 +1,25 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: releng-dummyapp-demo
+  namespace: argocd
+spec:
+  description: "Demonstration of declarative deployment configuration using argocd and dummy web app"
+
+  sourceRepos:
+    - 'https://github.com/nrao/dummy-app/'
+    - 'https://github.com/nrao/dummy-app.git'
+    - 'git@github.com:kdion-nrao/gitops-envs-test.git'
+
+  destinations:
+    - server: 'https://kubernetes.default.svc'
+      namespace: 'dummyapp*'
+
+  clusterResourceWhitelist:
+    - group: ''
+      kind: Namespace
+      name: dummyapp*
+
+  namespaceResourceWhitelist:
+    - group: '*'
+      kind: '*'
