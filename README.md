@@ -9,13 +9,16 @@ I used [`k3d`](https://k3d.io/stable/) running on docker for my local setup.
 - `docker`: installed via `colima`, **NOT** Docker Desktop
 - Gave colima extra resources via `colima start --cpus 5 --memory 16 --mount-type virtiofs --vm-type=vz --vz-rosetta`
 - `kubectl` using the [AWS/eks version](https://docs.aws.amazon.com/eks/latest/userguide/install-kubectl.html#eksctl-install-update)
+- [`helm`](https://helm.sh/docs/intro/install/)
+- [`sops`](https://getsops.io/) for secrets management
+- [`age`](https://github.com/FiloSottile/age) for pki encryption
 
 ### Quickstart
 
 You should be able to create and setup a full local k3d cluster with ArgoCD by running:
 ```bash
 # Install dependencies (macOS)
-brew install -y k3d kubectl helm argocd age
+brew install -y k3d helm argocd age
 
 # Setup the k3d cluster
 ./bootstrap.sh
@@ -31,11 +34,6 @@ https://dummy.localhost/dev/
 Create a k3d cluster:
 ```bash
 k3d cluster create --config k3d-cluster.yaml
-```
-
-[`helm`](https://helm.sh/docs/intro/install/)
-```
-brew install helm
 ```
 
 ### TLS Termination via Traefik
@@ -83,7 +81,7 @@ kubectl create secret tls local-selfsigned-tls \
     --namespace argocd
 ```
 
-Add your age key as a Secret for ArgoCD
+Add your [`age`](https://github.com/FiloSottile/age) key as a Secret for ArgoCD
 ```bash
 kubectl -n argocd create secret generic helm-secrets-private-keys --from-file=key.txt=your/age/key.txt
 ```
