@@ -43,12 +43,26 @@ repoServer:
       name: gitops-tools
     - mountPath: /helm-secrets-private-keys/
       name: helm-secrets-private-keys
+    - mountPath: /usr/local/bin/kustomize
+      name: gitops-tools
+      subPath: kustomize
+    - mountPath: /usr/local/bin/ksops
+      name: gitops-tools
+      subPath: ksops
   initContainers:
+    - name: install-ksops
+      image: viaductoss/ksops:v4.5.1
+      command: ["/usr/local/bin/ksops", "install", "--with-kustomize", "/gitops-tools"]
+      volumeMounts:
+        - mountPath: /gitops-tools
+          name: gitops-tools
     - name: download-tools
       image: alpine:latest
       imagePullPolicy: IfNotPresent
       command: [sh, -euc]
       env:
+        - name: CURL_VERSION
+          value: "8.21.0"
         - name: HELM_SECRETS_VERSION
           value: "4.7.7"
         - name: KUBECTL_VERSION
@@ -73,7 +87,7 @@ repoServer:
           mkdir -p "${HELM_PLUGINS}"
 
           export CURL_ARCH=$(uname -m)
-          export CURL_TARBALL="$(wget -qO- https://api.github.com/repos/stunnel/static-curl/releases/latest | grep '"browser_download_url":' | grep "curl-linux-${CURL_ARCH}-musl" | grep -o 'https://[^"]*')"
+          export CURL_TARBALL="https://github.com/stunnel/static-curl/releases/download/${CURL_VERSION}/curl-linux-${CURL_ARCH}-musl-${CURL_VERSION}.tar.xz"
           wget -qO- "${CURL_TARBALL}" | tar -C "${HELM_SECRETS_CURL_PATH%/*}" -xJzf-
 
           export GO_ARCH=$(uname -m | sed -e 's/x86_64/amd64/' -e 's/\(arm\)\(64\)\?.*/\1\2/' -e 's/aarch64$/arm64/')
@@ -98,6 +112,7 @@ configs:
     # Run server without TLS (will use ingress for TLS termination)
     server.insecure: true
   cm:
+    kustomize.buildOptions: "--enable-alpha-plugins --enable-exec"
     helm.valuesFileSchemes: >-
       secrets+gpg-import, secrets+gpg-import-kubernetes,
       secrets+age-import, secrets+age-import-kubernetes,

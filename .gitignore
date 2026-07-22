@@ -2,6 +2,7 @@
 charts/
 aws-tests/
 .github/
+tls*
 
 ## ignore any unencrypted secrets
 secrets/*.yaml

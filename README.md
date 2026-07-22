@@ -4,136 +4,125 @@ Setup a local k8s cluster (k3d) and ArgoCD for local experimentation, developmen
 
 ## Local kubernetes cluster
 
-I used `k3d` running on docker for my local setup.
+I used [`k3d`](https://k3d.io/stable/) running on docker for my local setup.
 
 - `docker`: installed via `colima`, **NOT** Docker Desktop
-    ```
-    $ docker version
-    Client: Docker Engine - Community
-    Version:           29.5.3
-    API version:       1.54
-    Go version:        go1.26.4
-    Git commit:        d1c06ef6b4
-    Built:             Wed Jun  3 17:16:33 2026
-    OS/Arch:           darwin/arm64
-    Context:           colima
-
-    Server: Docker Engine - Community
-    Engine:
-    Version:          29.5.2
-    API version:      1.54 (minimum version 1.40)
-    Go version:       go1.26.3
-    Git commit:       568f755
-    Built:            Wed May 20 14:39:25 2026
-    OS/Arch:          linux/arm64
-    Experimental:     false
-    containerd:
-    Version:          v2.2.4
-    GitCommit:        193637f7ee8ae5f5aa5248f49e7baa3e6164966e
-    runc:
-    Version:          1.3.5
-    GitCommit:        v1.3.5-0-g488fc13e
-    docker-init:
-    Version:          0.19.0
-    GitCommit:        de40ad0
-    ```
 - Gave colima extra resources via `colima start --cpus 5 --memory 16 --mount-type virtiofs --vm-type=vz --vz-rosetta`
 - `kubectl` using the [AWS/eks version](https://docs.aws.amazon.com/eks/latest/userguide/install-kubectl.html#eksctl-install-update)
-    ```
-    $ kubectl version
-    Client Version: v1.35.3-eks-bbe087e
-    Kustomize Version: v5.7.1
-    ```
 
-[`k3d`](https://k3d.io/stable/)
-- created a cluster:
-    ```bash
-    k3d cluster create --config k3d-cluster.yaml
-    ```
-    ```bash
-    $ kubectl get nodes
-    NAME                 STATUS   ROLES           AGE   VERSION
-    k3d-local-server-0   Ready    control-plane   22m   v1.35.5+k3s1
-    ```
+Create a k3d cluster:
+```bash
+k3d cluster create --config k3d-cluster.yaml
+```
 
 [`helm`](https://helm.sh/docs/intro/install/)
 ```
 brew install helm
 ```
 
-## ArgoCD
-```
-kubectl create namespace argocd
-kubectl apply -n argocd --server-side --force-conflicts -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
-```
-```
-kubectl get pods -n argocd
-```
+### TLS Termination via Traefik
 
-Install `argocd` cli
-```
-brew install argocd
-```
-
-Get default admin creds:
-```
-kubectl get secrets argocd-initial-admin-secret -n argocd -o jsonpath="{.data.password}" | base64 -d
-```
-Or, using `argocd` cli:
-```
-argocd admin initial-password -n argocd
-```
-
-Login to server with `argocd`
-```
-argocd login localhost:8443
-```
-
-Port forward the dashboard:
-```
-kubectl port-forward svc/argocd-server -n argocd 8443:443
-```
-Then, access the web dashboard at https://localhost:8443/
-
-### ArgoCD via Helm
-
+Generate a self-signed cert:
 ```bash
-# Add the ArgoCD Helm repository
+openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
+    -keyout tls.key -out tls.crt \
+    -subj "/CN=*.localhost"
+```
+
+Store the cert in a Kubernetes Secret for Traefik
+```bash
+kubectl create ns traefik
+kubectl create secret tls local-selfsigned-tls \
+    --cert=tls.crt --key=tls.key \
+    --namespace traefik
+```
+
+#### Install Traefik
+Add Repos
+```bash
+helm repo add traefik https://traefik.github.io/charts
+helm repo update
+```
+
+Install
+```bash
+helm install traefik traefik/traefik  \
+  --namespace traefik \
+  -f traefik-values.yaml --wait
+```
+
+View the Trafeik dashboard at: https://traefik.localhost/dashboard/
+
+## ArgoCD
+
+### Setup
+
+Store the cert in a Kubernetes Secret
+```bash
+kubectl create ns argocd
+kubectl create secret tls local-selfsigned-tls \
+    --cert=tls.crt --key=tls.key \
+    --namespace argocd
+```
+
+Add your age key as a Secret for ArgoCD
+```bash
+kubectl -n argocd create secret generic helm-secrets-private-keys --from-file=key.txt=your/age/key.txt
+```
+
+Add the ArgoCD Helm repository
+```bash
 helm repo add argo https://argoproj.github.io/argo-helm
 helm repo update
+```
 
+### Install
+
+Install the argocd Helm chart
+```bash
 helm install argocd argo/argo-cd \
   --namespace argocd \
   --create-namespace \
   -f argocd-values.yaml
 ```
 
-Upgrading installation
+Create the Ingress for https://argocd.localhost/
+```bash
+kubectl apply -f argocd-ingress.yaml
+```
 
+### Upgrading
 ```bash
 helm upgrade argocd argo/argo-cd \
   --namespace argocd \
   -f argocd-values.yaml
 ```
 
+### CLI
+Install `argocd` cli
+```bash
+brew install argocd
+```
+
+Get default admin creds:
+```bash
+argocd admin initial-password -n argocd
+```
+
+Login to server with `argocd`
+```bash
+argocd login argocd.localhost
+```
+
+## ArgoCD Apps
+Root App-of-Apps:
+```bash
+kubectl apply -f variants/local/root.yaml
+```
+
 ## Secrets
 
 See [secrets.md](secrets.md)
-
-### Installation
-Install the [latest version](https://github.com/jkroepke/helm-secrets/releases/latest):
-
-```bash
-helm plugin install --verify=false https://github.com/jkroepke/helm-secrets/releases/download/v4.7.7/secrets-4.7.7.tgz
-helm plugin install --verify=false https://github.com/jkroepke/helm-secrets/releases/download/v4.7.7/secrets-getter-4.7.7.tgz
-helm plugin install --verify=false https://github.com/jkroepke/helm-secrets/releases/download/v4.7.7/secrets-post-renderer-4.7.7.tgz
-```
-
-## dummyapp
-
-```
-kubectl apply -f envs/dev/dummyapp-application.yaml
-```
 
 ## Helpful commands
 
