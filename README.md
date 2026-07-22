@@ -10,6 +10,24 @@ I used [`k3d`](https://k3d.io/stable/) running on docker for my local setup.
 - Gave colima extra resources via `colima start --cpus 5 --memory 16 --mount-type virtiofs --vm-type=vz --vz-rosetta`
 - `kubectl` using the [AWS/eks version](https://docs.aws.amazon.com/eks/latest/userguide/install-kubectl.html#eksctl-install-update)
 
+### Quickstart
+
+You should be able to create and setup a full local k3d cluster with ArgoCD by running:
+```bash
+# Install dependencies (macOS)
+brew install -y k3d kubectl helm argocd age
+
+# Setup the k3d cluster
+./bootstrap.sh
+```
+
+Once it's complete, you should pretty soon be able to see:
+
+https://dummy.localhost/dev/
+
+
+### Manual
+
 Create a k3d cluster:
 ```bash
 k3d cluster create --config k3d-cluster.yaml
@@ -119,10 +137,6 @@ Root App-of-Apps:
 ```bash
 kubectl apply -f variants/local/root.yaml
 ```
-
-## Secrets
-
-See [secrets.md](secrets.md)
 
 ## Helpful commands
 
